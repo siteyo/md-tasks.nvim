@@ -35,4 +35,33 @@ function M.has_items(items, msg)
   end
 end
 
+---@param file_path string
+function M.extract_title(file_path)
+  local file = io.open(file_path, "r")
+  if not file then
+    return nil
+  end
+
+  if file:read("*l") ~= "---" then
+    file:close()
+    return nil
+  end
+
+  local title = nil
+  for line in file:lines() do
+    if line == "---" then
+      break
+    end
+
+    local t = line:match("^title:%s*(.*)")
+    if t then
+      title = t:match("^%s*['\"]?(.-)['\"]?%s*$")
+      break
+    end
+  end
+
+  file:close()
+  return title
+end
+
 return M

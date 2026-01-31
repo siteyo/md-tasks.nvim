@@ -13,7 +13,7 @@ if not snacks_ok then
 end
 
 ---@param source "files"|"tasks"
----@param values md-tasks.search.Item[]?
+---@param values md-tasks.search.Task[] | md-tasks.search.File[]
 ---@param on_select fun(item: snacks.picker.Item)
 function M.open(source, values, on_select)
   if not values or #values == 0 then

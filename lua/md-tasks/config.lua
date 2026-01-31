@@ -23,7 +23,7 @@ end
 
 ---Returns the name of the configured search backend.
 ---@return string
-function M.get_backend_name()
+function M.get_backend()
   if _config and _config.search and _config.search.backend then
     return _config.search.backend
   end

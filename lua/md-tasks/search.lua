@@ -1,26 +1,38 @@
 local config = require("md-tasks.config")
-local async = require("md-tasks.async")
-
----@class md-tasks.search.Item
----@field text string
----@field file string
----@field pos snacks.picker.Pos?
----
----@class md-tasks.search.backend
----@field get_file_command fun(pattern: string): string[]?
----@field get_task_command fun(pattern: string): string[]?
----@field parse_task_line fun(line: string): md-tasks.search.Item?
-
----@type md-tasks.search.backend
-local backend = require("md-tasks.backends")
+local util = require("md-tasks.util")
 
 local M = {}
+
+---@class md-tasks.search.Task
+---@field file string
+---@field pos number[]
+---@field text string
+
+---@class md-tasks.search.File
+---@field file string
+---@field text string
+
+---@class md-tasks.search.Opts
+---@field pattern string
+---@field cwd string
+
+---@class md-tasks.search.Engine
+---@field search_tasks fun(opts: md-tasks.search.Opts, on_result: fun(tasks: md-tasks.search.Task[]))
+---@field search_files fun(opts: md-tasks.search.Opts, on_result: fun(files: md-tasks.search.File[]))
+---@return md-tasks.search.Engine
+local function get_engine()
+  local ok, engine = pcall(require, "md-tasks.search." .. config.get_backend())
+  if not ok then
+    util.error("Failed to load search engine: " .. tostring(engine))
+  end
+  return engine
+end
 
 ---@param states_keys string[]
 local function get_pattern(states_keys)
   local config_states = config.get().states
   if not config_states then
-    return nil
+    return
   end
 
   local states_to_search = {}
@@ -37,7 +49,7 @@ local function get_pattern(states_keys)
   end
 
   if #states_to_search == 0 then
-    return nil
+    return
   end
 
   local inner_chars = {}
@@ -51,115 +63,34 @@ local function get_pattern(states_keys)
   return string.format([=[^\s*-\s\[[%s]]]=], char_group)
 end
 
----@param file_path string
-local function extract_title(file_path)
-  local file = io.open(file_path, "r")
-  if not file then
-    return nil
-  end
-
-  if file:read("*l") ~= "---" then
-    file:close()
-    return nil
-  end
-
-  local title = nil
-  for line in file:lines() do
-    if line == "---" then
-      break
-    end
-
-    local t = line:match("^title:%s*(.*)")
-    if t then
-      title = t:match("^%s*['\"]?(.-)['\"]?%s*$")
-      break
-    end
-  end
-
-  file:close()
-  return title
-end
-
----@class md-tasks.search.FindOpts
+---@class md-tasks.search.SearchTasksOpts
 ---@field states string[]?
----@field on_result fun(files: md-tasks.search.Item[]?)
+---@field on_result fun(tasks: md-tasks.search.Task[])
 
----@param search_type "tasks"|"files"
----@param opts md-tasks.search.FindOpts
-function M.find(search_type, opts)
-  local states = opts.states or {}
-  local cb = opts.on_result
-
-  if not cb then
-    require("md-tasks.util").warn("find called without a callback function.")
-    return
-  end
-
-  local pattern = get_pattern(states)
-  if not pattern then
-    cb(nil)
-    return
-  end
-
-  local get_cmd_fn = (search_type == "files") and backend.get_file_command or backend.get_task_command
-  local cmd = get_cmd_fn(pattern)
-
-  if not cmd then
-    cb(nil)
-    return
-  end
-
-  local process_results
-  if search_type == "files" then
-    process_results = function(lines)
-      if not lines then
-        return nil
-      end
-      local results = {}
-      for _, file_path in ipairs(lines) do
-        if file_path and #file_path > 0 then
-          local title = extract_title(file_path)
-          table.insert(results, {
-            text = title,
-            file = file_path,
-          })
-        end
-      end
-      return results
-    end
-  else -- "tasks"
-    process_results = function(lines)
-      if not lines then
-        return nil
-      end
-      local tasks = {}
-      for _, line in ipairs(lines) do
-        local task = backend.parse_task_line(line)
-        if task then
-          table.insert(tasks, task)
-        end
-      end
-      return tasks
-    end
-  end
-
-  async.run_job_async(cmd, function(lines)
-    cb(process_results(lines))
+---@param opts md-tasks.search.SearchTasksOpts
+function M.search_tasks(opts)
+  local engine = get_engine()
+  engine.search_tasks({
+    pattern = get_pattern(opts.states),
+    cwd = ".",
+  }, function(tasks)
+    opts.on_result(tasks)
   end)
 end
 
--- ---@param opts FindOpts
--- function M.find_files(opts)
---   find("files", opts)
--- end
---
--- ---@class FindTasks
--- ---@field states string[]?
--- ---@field on_reesult fun(tasks: table[] | nil)
---
--- ---@param opts FindTasks
--- function M.find_tasks(opts)
---   find("tasks", opts)
--- end
+---@class md-tasks.search.SearchFilesOpts
+---@field states string[]?
+---@field on_result fun(files: md-tasks.search.File[])
+
+---@param opts md-tasks.search.SearchFilesOpts
+function M.search_files(opts)
+  local engine = get_engine()
+  engine.search_files({
+    pattern = get_pattern(opts.states),
+    cwd = ".",
+  }, function(files)
+    opts.on_result(files)
+  end)
+end
 
 return M
