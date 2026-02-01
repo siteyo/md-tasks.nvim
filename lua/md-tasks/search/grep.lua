@@ -22,7 +22,7 @@ local function build_cmd(args, opts)
 end
 
 ---@param line string?
-local function parse_task(line)
+function M.parse_task(line)
   if not line or line == "" then
     return
   end
@@ -40,7 +40,7 @@ local function parse_task(line)
 end
 
 ---@param line string?
-local function parse_file(line)
+function M.parse_file(line)
   if not line or line == "" then
     return
   end
@@ -54,35 +54,15 @@ local function parse_file(line)
 end
 
 ---@param opts md-tasks.search.Opts
----@param on_result fun(tasks: md-tasks.search.Task[])
-function M.search_tasks(opts, on_result)
+function M.build_task_search_command(opts)
   local cmd = build_cmd({ "-n" }, opts)
-  async.run_job_async(cmd, function(lines)
-    local tasks = {}
-    for _, line in ipairs(lines) do
-      local task = parse_task(line)
-      if task then
-        table.insert(tasks, task)
-      end
-    end
-    on_result(tasks)
-  end)
+  return cmd
 end
 
 ---@param opts md-tasks.search.Opts
----@param on_result fun(tasks: md-tasks.search.File[])
-function M.search_files(opts, on_result)
+function M.build_file_search_command(opts)
   local cmd = build_cmd({ "-l" }, opts)
-  async.run_job_async(cmd, function(lines)
-    local files = {}
-    for _, line in ipairs(lines) do
-      local file = parse_file(line)
-      if file then
-        table.insert(files, file)
-      end
-    end
-    on_result(files)
-  end)
+  return cmd
 end
 
 return M

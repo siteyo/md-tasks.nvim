@@ -1,3 +1,4 @@
+local async = require("md-tasks.async")
 local config = require("md-tasks.config")
 local util = require("md-tasks.util")
 
@@ -17,8 +18,10 @@ local M = {}
 ---@field cwd string
 
 ---@class md-tasks.search.Engine
----@field search_tasks fun(opts: md-tasks.search.Opts, on_result: fun(tasks: md-tasks.search.Task[]))
----@field search_files fun(opts: md-tasks.search.Opts, on_result: fun(files: md-tasks.search.File[]))
+---@field parse_task fun(line: string?): md-tasks.search.Task?
+---@field parse_file fun(line: string?): md-tasks.search.File?
+---@field build_task_search_command fun(opts: md-tasks.search.Opts):string[]
+---@field build_file_search_command fun(opts: md-tasks.search.Opts):string[]
 ---@return md-tasks.search.Engine
 local function get_engine()
   local ok, engine = pcall(require, "md-tasks.search." .. config.get_backend())
@@ -63,33 +66,52 @@ local function get_pattern(states_keys)
   return string.format([=[^\s*-\s\[[%s]]]=], char_group)
 end
 
+---@param lines string[]
+---@param parser fun(line: string): table?
+local map_lines = function(lines, parser)
+  local items = {}
+  for _, line in ipairs(lines) do
+    local item = parser(line)
+    if item then
+      table.insert(items, item)
+    end
+  end
+  return items
+end
+
 ---@class md-tasks.search.SearchTasksOpts
 ---@field states string[]?
----@field on_result fun(tasks: md-tasks.search.Task[])
+---@field cwd string?
+---@field on_select fun(tasks: md-tasks.search.Task[])
 
 ---@param opts md-tasks.search.SearchTasksOpts
 function M.search_tasks(opts)
+  local pattern = get_pattern(opts.states)
+  local cwd = opts.cwd or "."
   local engine = get_engine()
-  engine.search_tasks({
-    pattern = get_pattern(opts.states),
-    cwd = ".",
-  }, function(tasks)
-    opts.on_result(tasks)
+  local cmd = engine.build_task_search_command({ pattern = pattern, cwd = cwd })
+  async.run_job_async(cmd, function(lines)
+    ---@type md-tasks.search.Task[]
+    local tasks = map_lines(lines, engine.parse_task)
+    opts.on_select(tasks)
   end)
 end
 
 ---@class md-tasks.search.SearchFilesOpts
 ---@field states string[]?
----@field on_result fun(files: md-tasks.search.File[])
+---@field cwd string?
+---@field on_select fun(files: md-tasks.search.File[])
 
 ---@param opts md-tasks.search.SearchFilesOpts
 function M.search_files(opts)
+  local pattern = get_pattern(opts.states)
+  local cwd = opts.cwd or "."
   local engine = get_engine()
-  engine.search_files({
-    pattern = get_pattern(opts.states),
-    cwd = ".",
-  }, function(files)
-    opts.on_result(files)
+  local cmd = engine.build_file_search_command({ pattern = pattern, cwd = cwd })
+  async.run_job_async(cmd, function(lines)
+    ---@type md-tasks.search.File[]
+    local files = map_lines(lines, engine.parse_file)
+    opts.on_select(files)
   end)
 end
 

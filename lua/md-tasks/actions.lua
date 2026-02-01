@@ -4,11 +4,11 @@ local util = require("md-tasks.util")
 
 local M = {}
 
----@param states table<string, string>?
+---@param states string[]?
 function M.show_tasks(states)
   search.search_tasks({
     states = states,
-    on_result = function(tasks)
+    on_select = function(tasks)
       util.has_items(tasks, "No tasks found.")
 
       ---@param selected_task md-tasks.search.Task
@@ -26,17 +26,17 @@ function M.show_tasks(states)
   })
 end
 
----@param states table<string, string>?
+---@param states string[]?
 function M.show_task_files(states)
   search.search_files({
     states = states,
-    on_result = function(files)
+    on_select = function(files)
       util.has_items(files, "No files found.")
 
       ---@param selected_file md-tasks.search.File
       local on_file_selected = function(selected_file)
         if selected_file and selected_file.file then
-          vim.cmd.edit(selected_file.file)
+          M.show_tasks({ states = states })
         else
           util.warn("Invalid file selected.")
         end
