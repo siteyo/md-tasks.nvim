@@ -1,4 +1,3 @@
-local async = require("md-tasks.async")
 local util = require("md-tasks.util")
 
 local BASE_CMD = {
