@@ -12,6 +12,15 @@ local BASE_CMD = {
 
 local M = {}
 
+---@class RgJsonData
+---@field line_number number
+---@field lines {text: string}
+---@field path {text: string}
+
+---@class RgJsonObj
+---@field type string
+---@field data RgJsonData
+
 ---@param args string[]
 ---@param opts md-tasks.search.Opts
 local function build_command(args, opts)
@@ -30,14 +39,17 @@ function M.parse_task(line)
     return
   end
 
-  -- format path:line:col:text
-  local parts = vim.split(line, ":", { plain = true, max = 4 })
+  ---@type RgJsonObj
+  local obj = vim.json.decode(line)
+  if obj.type ~= "match" then
+    return
+  end
 
   ---@type md-tasks.search.Task
   local task = {
-    file = parts[1],
-    pos = { tonumber(parts[2]), tonumber(parts[3]) },
-    text = parts[4],
+    file = obj.data.path.text,
+    pos = { obj.data.line_number, 0 },
+    text = obj.data.lines.text,
   }
   return task
 end
@@ -58,7 +70,7 @@ end
 
 ---@param opts md-tasks.search.Opts
 function M.build_task_search_command(opts)
-  local cmd = build_command({ "--vimgrep" }, opts)
+  local cmd = build_command({ "--json" }, opts)
   return cmd
 end
 
