@@ -21,12 +21,13 @@ function M.open(source, values, on_select)
     return
   end
 
-  local title
-
+  local title, format
   if source == "files" then
     title = "Task Files"
+    format = "file"
   elseif source == "tasks" then
     title = "Tasks"
+    format = "text"
   else
     util.error("Unknown picker source: " .. tostring(source))
     return
@@ -37,9 +38,8 @@ function M.open(source, values, on_select)
       title = title,
       items = values,
       preview = "file",
-      format = function(item)
-        return { { string.format("%s", item.text) } }
-      end,
+      format = format,
+      formatters = { text = { ft = "markdown" } },
       confirm = function(self, item)
         self:close()
         on_select(item)
