@@ -61,7 +61,7 @@ local function get_pattern(states_keys)
   end
 
   local char_group = table.concat(inner_chars, "")
-  char_group = vim.fn.escape(char_group, "]")
+  char_group = vim.fn.escape(char_group, "]^-\\")
 
   return string.format([=[^\s*-\s\[[%s]]]=], char_group)
 end
